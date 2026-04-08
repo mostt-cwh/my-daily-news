@@ -3,36 +3,34 @@ import requests
 import xml.etree.ElementTree as ET
 from google import genai
 
-# 1. 設定 AI
-client = genai.Client(
-    api_key=os.environ["GEMINI_API_KEY"],
-    http_options={'api_version': 'v1'}
-)
+# 1. 設定 AI - 移除 api_version 強制設定，讓 SDK 自己選最適合的
+client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
-# 2. 真正抓取 Google 新聞 (香港繁體中文)
+# 2. 真正抓取 Google 新聞
 def get_real_news():
     rss_url = "https://news.google.com/rss?hl=zh-HK&gl=HK&ceid=HK:zh-Hant"
-    response = requests.get(rss_url)
-    root = ET.fromstring(response.content)
-    
-    news_items = []
-    # 只取前 3 條新聞
-    for item in root.findall('./channel/item')[:3]:
-        title = item.find('title').text
-        link = item.find('link').text
-        news_items.append({"title": title, "link": link})
-    return news_items
+    try:
+        response = requests.get(rss_url, timeout=10)
+        root = ET.fromstring(response.content)
+        news_items = []
+        for item in root.findall('./channel/item')[:3]:
+            title = item.find('title').text
+            link = item.find('link').text
+            news_items.append({"title": title, "link": link})
+        return news_items
+    except Exception as e:
+        return [{"title": f"抓取新聞失敗: {str(e)}", "link": "#"}]
 
-# 執行抓取
 real_news = get_real_news()
 
-# 3. 讓 AI 總結
+# 3. 讓 AI 總結 - 切換到 2.0 版本，這是目前 2026 年最主流的模型
 summaries_html = ""
 for news in real_news:
     try:
+        # 如果 gemini-2.0-flash 還是不行，這段 try-except 會捕捉它
         response = client.models.generate_content(
-            model="gemini-1.5-flash", 
-            contents=f"請用 80 字以內廣東話/中文總結這則新聞的重點，並加入適當的 Emoji：{news['title']}"
+            model="gemini-2.0-flash", 
+            contents=f"請用 80 字以內廣東話/中文總結這則新聞重點：{news['title']}"
         )
         summary_text = response.text
         summaries_html += f"""
@@ -43,7 +41,7 @@ for news in real_news:
         </div>
         """
     except Exception as e:
-        summaries_html += f"<div class='card'>總結失敗: {str(e)}</div>"
+        summaries_html += f"<div class='card'>總結失敗，錯誤碼：{str(e)}</div>"
 
 # 4. 產生 HTML 檔案
 html_content = f"""
@@ -53,20 +51,17 @@ html_content = f"""
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; padding: 20px; max-width: 700px; margin: auto; background: #f0f2f5; color: #1c1e21; }}
-        h1 {{ text-align: center; color: #007bff; }}
-        .card {{ background: white; padding: 20px; margin-bottom: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); transition: transform 0.2s; }}
-        .card:hover {{ transform: translateY(-5px); }}
-        .card h3 {{ margin-top: 0; font-size: 1.2em; color: #333; }}
-        .card p {{ color: #444; font-size: 1em; }}
-        .card a {{ color: #007bff; text-decoration: none; font-weight: bold; font-size: 0.9em; }}
-        .footer {{ text-align: center; font-size: 0.8em; color: #888; margin-top: 30px; }}
+        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.6; padding: 20px; max-width: 700px; margin: auto; background: #f5f7fa; color: #333; }}
+        h1 {{ text-align: center; color: #1a73e8; }}
+        .card {{ background: white; padding: 20px; margin-bottom: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }}
+        .card h3 {{ margin-top: 0; font-size: 1.1em; }}
+        .footer {{ text-align: center; font-size: 0.8em; color: #999; margin-top: 30px; }}
     </style>
 </head>
 <body>
     <h1>🤖 AI 每日新聞總結</h1>
     {summaries_html}
-    <div class="footer">最後更新時間 (UTC)：{os.popen('date').read()}</div>
+    <div class="footer">更新時間：{os.popen('date').read()}</div>
 </body>
 </html>
 """
