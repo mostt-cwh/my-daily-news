@@ -1,8 +1,12 @@
 import os
 from google import genai
+from google.genai import types
 
-# 1. 設定 AI (使用最新的 google-genai 庫)
-client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+# 1. 設定 AI (明確指定 http_options 使用 v1 穩定版)
+client = genai.Client(
+    api_key=os.environ["GEMINI_API_KEY"],
+    http_options={'api_version': 'v1'}
+)
 
 # 2. 模擬抓取新聞
 news_list = [
@@ -14,14 +18,17 @@ news_list = [
 # 3. 讓 AI 總結
 summaries = []
 for news in news_list:
-    # 使用目前最快且免費的 gemini-1.5-flash 或 gemini-2.0-flash
-    response = client.models.generate_content(
-        model="gemini-1.5-flash", 
-        contents=f"請用 50 字以內廣東話/中文總結這則新聞：{news}"
-    )
-    summaries.append(response.text)
+    # 嘗試使用正確的完整模型標識符
+    try:
+        response = client.models.generate_content(
+            model="gemini-1.5-flash", 
+            contents=f"請用 50 字以內廣東話/中文總結這則新聞：{news}"
+        )
+        summaries.append(response.text)
+    except Exception as e:
+        summaries.append(f"總結失敗: {str(e)}")
 
-# 4. 產生 HTML 檔案
+# 4. 產生 HTML 檔案 (這部分維持不變)
 html_content = f"""
 <html>
 <head>
