@@ -6,7 +6,24 @@ from google import genai
 # 1. 初始化 Client
 client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
-# 2. 抓取新聞
+# 2. 自動偵測可用的模型 (不再盲猜名稱)
+def get_available_model():
+    try:
+        # 列出所有你可以使用的模型
+        for model in client.models.list():
+            # 優先找 flash 等級的模型，速度快且免費
+            if "generateContent" in model.supported_methods:
+                if "flash" in model.name:
+                    return model.name
+        return "models/gemini-1.5-flash" # 保底
+    except Exception as e:
+        print(f"無法列出模型: {e}")
+        return "models/gemini-1.5-flash"
+
+selected_model = get_available_model()
+print(f"系統自動選擇模型: {selected_model}")
+
+# 3. 抓取新聞
 def get_real_news():
     rss_url = "https://news.google.com/rss?hl=zh-HK&gl=HK&ceid=HK:zh-Hant"
     try:
@@ -18,32 +35,28 @@ def get_real_news():
 
 real_news = get_real_news()
 
-# 3. AI 總結邏輯 (嘗試多個模型版本)
-def ask_gemini(prompt):
-    # 這裡列出你想嘗試的模型，按優先順序排列
-    models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
-    
-    for model_name in models_to_try:
-        try:
-            response = client.models.generate_content(model=model_name, contents=prompt)
-            return response.text, model_name # 回傳總結內容和使用的模型名
-        except Exception:
-            continue # 如果失敗，嘗試下一個
-    return "所有模型均暫時無法使用", "None"
-
+# 4. 總結邏輯
 summaries_html = ""
 for news in real_news:
-    summary_text, used_model = ask_gemini(f"請用 80 字內廣東話總結這新聞重點並加 Emoji：{news['title']}")
+    try:
+        response = client.models.generate_content(
+            model=selected_model, 
+            contents=f"請用 80 字內廣東話總結這新聞重點並加 Emoji：{news['title']}"
+        )
+        summary_text = response.text
+    except Exception as e:
+        summary_text = f"總結失敗。錯誤原因：{str(e)}"
+
     summaries_html += f"""
     <div class="card">
         <h3>{news['title']}</h3>
         <p>{summary_text}</p>
-        <div style="font-size:0.7em; color: #bbb;">Powered by {used_model}</div>
+        <div style="font-size:0.7em; color: #bbb;">模型：{selected_model}</div>
         <a href="{news['link']}" target="_blank">閱讀原文 →</a>
     </div>
     """
 
-# 4. 生成 HTML (其餘樣式保持不變)
+# 5. 生成 HTML (樣式優化)
 html_content = f"""
 <html>
 <head>
@@ -51,16 +64,16 @@ html_content = f"""
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body {{ font-family: sans-serif; line-height: 1.6; padding: 20px; max-width: 600px; margin: auto; background: #f4f7f6; }}
-        .card {{ background: white; padding: 15px; margin-bottom: 15px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }}
-        h1 {{ color: #2c3e50; text-align: center; }}
-        a {{ color: #3498db; text-decoration: none; }}
+        body {{ font-family: -apple-system, system-ui, sans-serif; line-height: 1.6; padding: 20px; max-width: 600px; margin: auto; background: #f0f2f5; }}
+        .card {{ background: white; padding: 20px; margin-bottom: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }}
+        h1 {{ color: #1a73e8; text-align: center; }}
+        a {{ color: #1a73e8; text-decoration: none; font-weight: bold; }}
     </style>
 </head>
 <body>
-    <h1>🗞️ AI 每日新聞 (Gemini 驅動)</h1>
+    <h1>🗞️ 私人 AI 報紙</h1>
     {summaries_html}
-    <p style="text-align:center; color:#999; font-size:0.8em;">更新時間：{os.popen('date').read()}</p>
+    <p style="text-align:center; color:#999; font-size:0.8em;">最後更新：{os.popen('date').read()}</p>
 </body>
 </html>
 """
