@@ -9,8 +9,8 @@
         header { background: linear-gradient(135deg, #0d47a1, #1976d2); color: white; padding: 25px; border-radius: 15px; text-align: center; margin-bottom: 20px; }
         .current-time { font-size: 0.9em; opacity: 0.8; margin-top: 5px; }
         
-        .info-panel { display: flex; gap: 10px; margin-bottom: 20px; }
-        .info-card { flex: 1; background: #fff; padding: 15px; border-radius: 12px; border-top: 4px solid #1976d2; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .info-panel { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .info-card { flex: 1; min-width: 250px; background: #fff; padding: 15px; border-radius: 12px; border-top: 4px solid #1976d2; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         .info-card h4 { margin: 0 0 8px 0; color: #1976d2; font-size: 0.85em; }
         
         .weather-box { margin-top: 10px; }
@@ -18,6 +18,7 @@
         .temp-detail { font-size: 1em; opacity: 0.9; }
         
         .card { background: white; padding: 18px; margin-bottom: 12px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.03); transition: transform 0.1s; }
+        .card:hover { transform: translateY(-2px); border-left: 4px solid #0d47a1; }
         .card h3 { margin: 0 0 10px 0; font-size: 1.05em; line-height: 1.4; color: #2c3e50; }
         a { color: #1976d2; text-decoration: none; font-weight: 500; font-size: 0.9em; }
         
@@ -27,18 +28,23 @@
 <body>
     <header>
         <h1>👨‍🏫 IT 教育情報站</h1>
-        <div class="current-time">🕒 更新時間：2026年04月08日 15:55:47</div>
+        <div class="current-time">🕒 更新時間：2026年04月08日 16:01:52 (伺服器時間)</div>
         
+    <div class="weather-box">
+        <div class="temp-main">23°C</div>
+        <div class="temp-detail">今日範圍：--°C - --°C</div>
+    </div>
+    
     </header>
 
     <div class="info-panel">
         <div class="info-card">
             <h4>🗓️ 2026 DSE ICT 倒數</h4>
-            <div style="font-size: 1.1em;">距離 2026 DSE ICT 考試還有 <strong>15</strong> 天</div>
+            <div style="font-size: 1.1em;">距離 2026 DSE ICT 考試還有 <strong style='font-size:1.2em; color:#d35400;'>15</strong> 天</div>
         </div>
         <div class="info-card">
             <h4>🌤️ 今日天氣預測</h4>
-            <div style="font-size: 0.95em; line-height: 1.5;">無法獲取今日預測</div>
+            <div style="font-size: 0.95em; line-height: 1.5; color: #444;">暫時無法獲取詳細概況 (最高濕度：95%)</div>
         </div>
     </div>
 
