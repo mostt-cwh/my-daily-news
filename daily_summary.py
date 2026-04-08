@@ -23,13 +23,13 @@ real_news = get_real_news()
 
 # 3. 強化版總結邏輯
 def summarize_content(text):
-    # 嘗試列表，包含 Gemini 和可能的 Gemma API 名稱
-    test_models = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"]
+    # 嘗試 2026 年最新且最穩定的模型標籤
+    test_models = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-3-flash-preview"]
     
     last_err = ""
     for m in test_models:
         try:
-            # 加上 config 確保不使用預設的 v1beta
+            # 這裡我們嘗試不加 models/ 前綴
             response = client.models.generate_content(
                 model=m, 
                 contents=f"請用 80 字內廣東話總結這新聞重點：{text}"
@@ -37,9 +37,18 @@ def summarize_content(text):
             return response.text, m
         except Exception as e:
             last_err = str(e)
-            continue
-    return f"暫時無法連線 AI。錯誤：{last_err}", "None"
-
+            # 如果失敗，嘗試加上 models/ 前綴再試一次
+            try:
+                response = client.models.generate_content(
+                    model=f"models/{m}", 
+                    contents=f"請用 80 字內廣東話總結這新聞重點：{text}"
+                )
+                return response.text, f"models/{m}"
+            except:
+                continue
+                
+    return f"AI 拒絕連線。錯誤訊息：{last_err}", "None"
+    
 summaries_html = ""
 for news in real_news:
     summary, used_model = summarize_content(news['title'])
