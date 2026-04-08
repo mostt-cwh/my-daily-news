@@ -21,7 +21,7 @@ for news in news_list:
     # 嘗試使用正確的完整模型標識符
     try:
         response = client.models.generate_content(
-            model="gemini-1.5-flash", 
+            model="gemini-3-flash-preview", 
             contents=f"請用 50 字以內廣東話/中文總結這則新聞：{news}"
         )
         summaries.append(response.text)
