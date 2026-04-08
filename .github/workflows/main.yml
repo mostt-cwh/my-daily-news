@@ -1,0 +1,31 @@
+name: Daily News Update
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # 每天香港時間早上 8 點執行
+  workflow_dispatch: # 允許手動執行
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout代碼
+        uses: actions/checkout@v3
+
+      - name: 安裝 Python 與套件
+        run: |
+          python -m pip install --upgrade pip
+          pip install google-generativeai
+
+      - name: 執行總結腳本
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python daily_summary.py
+
+      - name: 自動提交生成的網頁到 GitHub
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+          git add index.html
+          git commit -m "Update news summary" || exit 0
+          git push
