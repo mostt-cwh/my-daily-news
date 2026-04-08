@@ -3,152 +3,136 @@ import requests
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
-# 1. 獲取天氣 (包含最高最低溫)
-def get_detailed_weather():
+# 1. 獲取天氣資訊 (包含當前、最高最低、以及詳細預測)
+def get_weather_info():
     try:
         fnd_url = "https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=fnd&lang=tc"
         rhr_url = "https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=tc"
         fnd_data = requests.get(fnd_url, timeout=10).json()
         rhr_data = requests.get(rhr_url, timeout=10).json()
         
-        today_forecast = fnd_data['weatherForecast'][0]
+        today_f = fnd_data['weatherForecast'][0]
         return {
             "current": rhr_data['temperature']['data'][0]['value'],
-            "max": today_forecast['forecastMaxTemp']['value'],
-            "min": today_forecast['forecastMinTemp']['value'],
-            "desc": today_forecast['forecastForecast']
+            "max": today_f['forecastMaxTemp']['value'],
+            "min": today_f['forecastMinTemp']['value'],
+            "desc": today_f['forecastForecast'], # 詳細天氣概況
+            "humidity": today_f['forecastMaxrh']['value'] # 今日濕度上限
         }
     except:
         return None
 
-# 2. 獲取重要日子倒數 (例如：DSE ICT 考試)
-def get_countdown():
-    # 這裡可以修改為你學校的考試日期或重要活動
-    target_date = datetime(2027, 4, 15) # 假設 2027 年 DSE ICT 考試日
+# 2. 2026 DSE ICT 倒數
+def get_dse_countdown():
+    # 設定 2026 ICT 考試大約日期 (2026-04-24)
+    target_date = datetime(2026, 4, 24)
     today = datetime.now()
     delta = target_date - today
     if delta.days > 0:
-        return f"距離 2027 DSE ICT 考試還有 <strong>{delta.days}</strong> 天"
+        return f"距離 2026 DSE ICT 考試還有 <strong>{delta.days}</strong> 天"
     else:
-        return "DSE 已經開始或結束！"
+        return "2026 DSE ICT 考試已經開始或結束"
 
-# 3. 每日 IT 金句 / 冷知識 (根據日期自動輪換)
-def get_daily_quote():
-    quotes = [
-        "「每個人都應該學習編程，因為它教你如何思考。」— Steve Jobs",
-        "💡 IT 冷知識：世界上第一個滑鼠是木頭做的，發明於 1964 年。",
-        "「Talk is cheap. Show me the code.」— Linus Torvalds (Linux 創始人)",
-        "💡 IT 冷知識：第一隻電腦 Bug 真的是一隻飛蛾，被夾在電腦繼電器中。",
-        "「電腦就像比基尼，省去了人們許多猜想。」— Sam Ewing",
-        "💡 IT 冷知識：Ctrl+Alt+Del 最初是設計給開發人員快速重啟電腦的隱藏快捷鍵。"
+# 3. 獲取新聞 (整合 Google News & 政府新聞)
+def get_it_edu_news():
+    it_keywords = ["科技", "AI", "人工智能", "黑客", "網絡安全", "ChatGPT", "編程"]
+    ed_keywords = ["教育", "學校", "DSE", "教育局", "教師", "學生", "STEM"]
+    
+    # 來源：Google News & 政府新聞
+    urls = [
+        "https://news.google.com/rss?hl=zh-HK&gl=HK&ceid=HK:zh-Hant",
+        "https://www.info.gov.hk/gia/rss/general_zh.xml"
     ]
-    # 根據一年中的第幾天來決定顯示哪一句，每天不一樣
-    day_of_year = datetime.now().timetuple().tm_yday
-    return quotes[day_of_year % len(quotes)]
-
-# 4. 抓取新聞 (加入政府新聞網 RSS)
-def fetch_news_from_rss(rss_url, keywords, limit=3):
-    items = []
-    try:
-        response = requests.get(rss_url, timeout=10)
-        root = ET.fromstring(response.content)
-        for item in root.findall('./channel/item'):
-            title = item.find('title').text
-            link = item.find('link').text
-            if any(word in title for word in keywords):
-                items.append({"title": title, "link": link})
-            if len(items) >= limit: break
-    except:
-        pass
-    return items
-
-def get_all_news():
-    it_keywords = ["科技", "AI", "資訊科技", "編程", "人工智能", "黑客", "網絡安全"]
-    ed_keywords = ["教育", "學校", "DSE", "考評局", "教師", "學生"]
     
-    # 來源 A: Google News (主攻 IT)
-    google_url = "https://news.google.com/rss?hl=zh-HK&gl=HK&ceid=HK:zh-Hant"
-    # 來源 B: 香港政府新聞網 (教育局相關)
-    gov_url = "https://www.info.gov.hk/gia/rss/general_zh.xml"
+    unique_news = []
+    seen_titles = set()
     
-    news_all = []
-    news_all.extend(fetch_news_from_rss(google_url, it_keywords, limit=3))
-    news_all.extend(fetch_news_from_rss(gov_url, ed_keywords, limit=2))
-    
-    # 去重
-    seen, unique_news = set(), []
-    for n in news_all:
-        if n['title'] not in seen:
-            unique_news.append(n)
-            seen.add(n['title'])
+    for url in urls:
+        try:
+            response = requests.get(url, timeout=10)
+            root = ET.fromstring(response.content)
+            for item in root.findall('./channel/item'):
+                title = item.find('title').text
+                link = item.find('link').text
+                if any(kw in title for kw in it_keywords + ed_keywords):
+                    if title not in seen_titles:
+                        unique_news.append({"title": title, "link": link})
+                        seen_titles.add(title)
+                if len(unique_news) >= 5: break
+        except:
+            continue
     return unique_news[:5]
 
-# --- 執行程序 ---
-weather = get_detailed_weather()
-countdown_text = get_countdown()
-quote_text = get_daily_quote()
-news_items = get_all_news()
+# --- 數據準備 ---
+weather = get_weather_info()
+dse_text = get_dse_countdown()
+news_list = get_it_edu_news()
+now_str = datetime.now().strftime('%Y年%m月%d日 %H:%M:%S')
 
-# --- 生成 HTML ---
-weather_html = ""
+# --- HTML 生成 ---
+weather_box = ""
+weather_desc_card = "無法獲取今日預測"
 if weather:
-    weather_html = f"""
+    weather_box = f"""
     <div class="weather-box">
         <div class="temp-main">{weather['current']}°C</div>
-        <div class="temp-detail">今日：{weather['min']}°C - {weather['max']}°C</div>
-        <div class="weather-desc">{weather['desc']}</div>
+        <div class="temp-detail">今日範圍：{weather['min']}°C - {weather['max']}°C</div>
     </div>
     """
+    weather_desc_card = f"{weather['desc']} (濕度：{weather['humidity']}%)"
 
-news_html = "".join([f'<div class="card"><h3>{n["title"]}</h3><a href="{n["link"]}" target="_blank">查看全文 →</a></div>' for n in news_items])
+news_html = "".join([f'<div class="card"><h3>{n["title"]}</h3><a href="{n["link"]}" target="_blank">查看全文 →</a></div>' for n in news_list])
 
 html_content = f"""
 <html>
 <head>
-    <title>IT 老師教學儀表板</title>
+    <title>IT 教育教學看板</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body {{ font-family: -apple-system, "PingFang HK", sans-serif; background: #f0f2f5; padding: 20px; max-width: 650px; margin: auto; color: #333; }}
-        header {{ background: linear-gradient(135deg, #1a73e8, #2c3e50); color: white; padding: 25px; border-radius: 15px; text-align: center; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
-        h1 {{ margin: 0; font-size: 1.8em; }}
-        .weather-box {{ background: rgba(255,255,255,0.15); padding: 15px; border-radius: 10px; margin-top: 15px; }}
-        .temp-main {{ font-size: 2.2em; font-weight: bold; margin-bottom: 5px; }}
+        body {{ font-family: -apple-system, "PingFang HK", sans-serif; background: #f4f6f9; padding: 15px; max-width: 650px; margin: auto; color: #333; }}
+        header {{ background: linear-gradient(135deg, #0d47a1, #1976d2); color: white; padding: 25px; border-radius: 15px; text-align: center; margin-bottom: 20px; }}
+        .current-time {{ font-size: 0.9em; opacity: 0.8; margin-top: 5px; }}
         
-        .info-panel {{ display: flex; gap: 15px; margin-bottom: 20px; }}
-        .info-card {{ flex: 1; background: #fff; padding: 15px; border-radius: 10px; border-left: 5px solid #1a73e8; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }}
-        .info-card h4 {{ margin: 0 0 8px 0; color: #666; font-size: 0.9em; text-transform: uppercase; }}
+        .info-panel {{ display: flex; gap: 10px; margin-bottom: 20px; }}
+        .info-card {{ flex: 1; background: #fff; padding: 15px; border-radius: 12px; border-top: 4px solid #1976d2; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }}
+        .info-card h4 {{ margin: 0 0 8px 0; color: #1976d2; font-size: 0.85em; }}
         
-        .card {{ background: white; padding: 20px; margin-bottom: 15px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); transition: transform 0.2s; }}
-        .card:hover {{ transform: translateX(5px); border-left: 3px solid #1a73e8; }}
-        .card h3 {{ margin: 0 0 10px 0; font-size: 1.1em; line-height: 1.4; }}
-        a {{ color: #1a73e8; text-decoration: none; font-weight: 500; font-size: 0.9em; }}
-        .footer {{ text-align: center; font-size: 0.8em; color: #888; margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; }}
+        .weather-box {{ margin-top: 10px; }}
+        .temp-main {{ font-size: 2.5em; font-weight: bold; }}
+        .temp-detail {{ font-size: 1em; opacity: 0.9; }}
+        
+        .card {{ background: white; padding: 18px; margin-bottom: 12px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.03); transition: transform 0.1s; }}
+        .card h3 {{ margin: 0 0 10px 0; font-size: 1.05em; line-height: 1.4; color: #2c3e50; }}
+        a {{ color: #1976d2; text-decoration: none; font-weight: 500; font-size: 0.9em; }}
+        
+        .footer {{ text-align: center; font-size: 0.75em; color: #7f8c8d; margin-top: 30px; line-height: 1.8; }}
     </style>
 </head>
 <body>
     <header>
-        <h1>👨‍🏫 IT 老師教學儀表板</h1>
-        {weather_html}
+        <h1>👨‍🏫 IT 教育情報站</h1>
+        <div class="current-time">🕒 更新時間：{now_str}</div>
+        {weather_box}
     </header>
 
     <div class="info-panel">
         <div class="info-card">
-            <h4>⏱️ 重要倒數</h4>
-            <div>{countdown_text}</div>
+            <h4>🗓️ 2026 DSE ICT 倒數</h4>
+            <div style="font-size: 1.1em;">{dse_text}</div>
         </div>
-        <div class="info-card" style="border-left-color: #f39c12;">
-            <h4>💬 每日金句 / 冷知識</h4>
-            <div>{quote_text}</div>
+        <div class="info-card">
+            <h4>🌤️ 今日天氣預測</h4>
+            <div style="font-size: 0.95em; line-height: 1.5;">{weather_desc_card}</div>
         </div>
     </div>
 
-    <h2 style="font-size: 1.2em; color: #2c3e50; border-bottom: 2px solid #1a73e8; padding-bottom: 5px; display: inline-block;">📰 焦點新聞 (教育與科技)</h2>
+    <h2 style="font-size: 1.2em; border-left: 4px solid #0d47a1; padding-left: 10px; margin: 25px 0 15px 0;">📰 最新教育與科技焦點</h2>
     {news_html}
 
     <div class="footer">
-        自動更新時間：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} (HKT)<br>
-        數據來源：香港天文台、香港政府新聞網、Google News
+        自動化腳本運行中 | 數據來源：香港天文台、香港政府新聞網、Google News RSS<br>
+        本網頁由 IT 教師自動化系統每日更新
     </div>
 </body>
 </html>
